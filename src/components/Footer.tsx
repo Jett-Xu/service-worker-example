@@ -4,7 +4,7 @@ interface FooterProps {
   isOnline: boolean;
 }
 
-export function Footer({ isOnline }: FooterProps) {
+const Footer = ({ isOnline }: FooterProps) => {
   return (
     <footer className="fixed bottom-0 right-0 w-3/4 bg-slate-900/80 backdrop-blur-md border-t border-slate-800/60 px-6 py-3 flex items-center justify-between z-20">
       <div className="flex items-center gap-4 text-sm">
@@ -24,4 +24,6 @@ export function Footer({ isOnline }: FooterProps) {
       </div>
     </footer>
   );
-}
+};
+
+export { Footer };

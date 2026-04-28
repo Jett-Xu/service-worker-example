@@ -1,15 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
 import { CloudOff, RefreshCw } from 'lucide-react';
 
-export function CachedImage({ src, alt }: { src: string; alt: string }) {
+const CachedImage = ({ src, alt, onLoadComplete }: { src: string; alt: string; onLoadComplete?: (stats: { isCacheHit: boolean, duration: number, estimatedSizeMB: number }) => void }) => {
   const [loadTime, setLoadTime] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const startTimeRef = useRef<number>(performance.now());
   const imgRef = useRef<HTMLImageElement>(null);
+  const hasReportedRef = useRef(false);
 
   useEffect(() => {
     startTimeRef.current = performance.now();
+    hasReportedRef.current = false;
     setIsLoading(true);
     setHasError(false);
   }, [src]);
@@ -22,23 +24,44 @@ export function CachedImage({ src, alt }: { src: string; alt: string }) {
   }, [src]);
 
   const handleLoad = () => {
+    if (hasReportedRef.current) return;
+    hasReportedRef.current = true;
+
     const endTime = performance.now();
     const duration = Math.round(endTime - startTimeRef.current);
+    let finalDuration = duration;
+    let actualSizeMB = 1.2; // Fallback to 1.2MB
     
-    // Attempt to use Performance API for more accurate fetch time if available
+    // Attempt to use Performance API for more accurate fetch time and size if available
     try {
-      const entries = performance.getEntriesByName(src);
+      const entries = performance.getEntriesByName(src) as PerformanceResourceTiming[];
+      console.log('entries', entries)
       if (entries.length > 0) {
         const latestEntry = entries[entries.length - 1];
-        setLoadTime(Math.round(latestEntry.duration));
-      } else {
-        setLoadTime(duration);
+        finalDuration = Math.round(latestEntry.duration);
+        
+        if (latestEntry.encodedBodySize && latestEntry.encodedBodySize > 0) {
+          actualSizeMB = Number((latestEntry.encodedBodySize / (1024 * 1024)).toFixed(2));
+        } else if (latestEntry.transferSize && latestEntry.transferSize > 0) {
+          actualSizeMB = Number((latestEntry.transferSize / (1024 * 1024)).toFixed(2));
+        }
       }
     } catch (e) {
-      setLoadTime(duration);
+      // fallback
     }
-    
+
+    setLoadTime(finalDuration);
     setIsLoading(false);
+
+    // Call the callback to update the chart in App.tsx
+    const isCache = finalDuration < 100;
+    if (onLoadComplete) {
+      onLoadComplete({
+        isCacheHit: isCache,
+        duration: finalDuration,
+        estimatedSizeMB: actualSizeMB
+      });
+    }
   };
 
   const handleError = () => {
@@ -91,4 +114,6 @@ export function CachedImage({ src, alt }: { src: string; alt: string }) {
       </div>
     </div>
   );
-}
+};
+
+export { CachedImage };
